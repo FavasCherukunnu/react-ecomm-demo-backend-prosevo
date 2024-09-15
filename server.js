@@ -140,15 +140,55 @@ app.post('/api/product/add',
 
 app.get('/api/products', async (req, res) => {
     try {
-        const products = await Product.find();
+        // Pagination
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.perPage) || 10;
+
+        // Sorting
+        const sortField = req.query.sortField || 'createdAt';
+        const sortOrder = req.query.sortOrder === 'desc' ? -1 : 1;
+
+        // Filtering
+        const filterName = req.query.name;
+        const filterCategory = req.query.category;
+
+        let query = {};
+
+        if (filterName) {
+            query.name = { $regex: filterName, $options: 'i' };
+        }
+
+        if (filterCategory) {
+            query.category_id = filterCategory;
+        }
+
+        // Count total products (for pagination info)
+        const totalProducts = await Product.countDocuments(query);
+
+        // Fetch products
+        const products = await Product.find(query)
+            .select('name title description image thumbnail_image category_id') // Adjust fields as needed
+            .sort({ [sortField]: sortOrder })
+            .skip((page - 1) * limit)
+            .limit(limit)
+            .populate('category_id', 'name'); // This will populate the category name
+
         res.json({
             success: true,
             message: 'Products fetched successfully',
+            currentPage: page,
+            totalPages: Math.ceil(totalProducts / limit),
+            totalProducts: totalProducts,
+            productsPerPage: limit,
             products: products
         });
     } catch (error) {
-        console.error(error);
-        res.status(500).send('Error fetching products');
+        console.error('Error fetching products:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching products',
+            error: error.message
+        });
     }
 });
 
@@ -170,7 +210,7 @@ const validateProductUpdate = [
 ];
 
 // Update product route
-app.put('/api/product/:id', 
+app.put('/api/product/:id',
     upload.single('image'),
     validateProductUpdate,
     async (req, res) => {
@@ -281,7 +321,7 @@ app.put('/api/product/:id',
 );
 
 // Delete product route
-app.delete('/api/product/:id', 
+app.delete('/api/product/:id',
     param('id').isMongoId().withMessage('Invalid product ID'),
     async (req, res) => {
         try {
@@ -324,7 +364,7 @@ app.delete('/api/product/:id',
         }
     }
 );
-app.get('/api/product/:id', 
+app.get('/api/product/:id',
     param('id').isMongoId().withMessage('Invalid product ID'),
     async (req, res) => {
         try {
@@ -345,7 +385,7 @@ app.get('/api/product/:id',
                 });
             }
 
-            
+
             res.json({
                 success: true,
                 message: 'Product fetched successfully',
@@ -361,10 +401,49 @@ app.get('/api/product/:id',
     }
 );
 
+//get all category
+app.get('/api/categories', async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.perPage) || 10;
+        const sortField = req.query.sortField || 'name';
+        const sortOrder = req.query.sortOrder === 'desc' ? -1 : 1;
+        const filterName = req.query.name;
+
+        const query = filterName ? { name: { $regex: filterName, $options: 'i' } } : {};
+
+        const totalCategories = await Category.countDocuments(query);
+
+        const categories = await Category.find(query)
+            .select('name description') // Add any other fields you want to include
+            .sort({ [sortField]: sortOrder })
+            .skip((page - 1) * limit)
+            .limit(limit);
+
+        res.json({
+            success: true,
+            count: categories.length,
+            totalCategories: totalCategories,
+            totalPages: Math.ceil(totalCategories / limit),
+            currentPage: page,
+            categories: categories
+        });
+    } catch (error) {
+        console.error('Error fetching categories:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching categories',
+            error: error.message
+        });
+    }
+});
+
 // Helper function to extract public_id from Cloudinary URL
 function getPublicIdFromUrl(url) {
     const parts = url.split('/');
-    return parts[parts.length - 1].split('.')[0];
+    const filePart = parts[parts.length - 2] + '/' + parts[parts.length - 1].split('.')[0];
+    console.log(filePart)
+    return filePart;
 }
 
 
