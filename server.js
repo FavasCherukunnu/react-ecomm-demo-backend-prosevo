@@ -141,7 +141,11 @@ app.post('/api/product/add',
 app.get('/api/products', async (req, res) => {
     try {
         const products = await Product.find();
-        res.json(products);
+        res.json({
+            success: true,
+            message: 'Products fetched successfully',
+            products: products
+        });
     } catch (error) {
         console.error(error);
         res.status(500).send('Error fetching products');
