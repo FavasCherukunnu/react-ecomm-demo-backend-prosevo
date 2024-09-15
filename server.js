@@ -10,8 +10,42 @@ const { storage } = require('./storage/storage');
 const multer = require('multer');
 const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 2 * 1024 * 1024 } // 2MB limit
-});
+    limits: { fileSize: 2 * 1024 * 1024 }, // 2MB limit
+    fileFilter: (req, file, cb) => {
+        // You can add file type checking here if needed
+        cb(null, true);
+    }
+}).single('image');
+
+const handleUpload = (req, res, next) => {
+    upload(req, res, (err) => {
+        if (err instanceof multer.MulterError) {
+            // A Multer error occurred when uploading.
+            if (err.code === 'LIMIT_FILE_SIZE') {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Image size is too large',
+                    error: {
+                        image: 'File too large'
+                    }
+                });
+            }
+            // Handle other Multer errors here if needed
+        } else if (err) {
+            // An unknown error occurred when uploading.
+            return res.status(500).json({
+                success: false,
+                message: 'Error uploading file',
+                error: {
+                    image: 'Upload failed'
+                }
+            });
+        }
+        
+        // Everything went fine.
+        next();
+    });
+};
 
 const Product = require('./models/product');
 const { body, validationResult, param } = require('express-validator');
@@ -41,7 +75,7 @@ const validateProduct = [
 ];
 
 app.post('/api/product/add',
-    upload.single('image'),
+    handleUpload,
     validateProduct,
     async (req, res) => {
         try {
@@ -211,8 +245,8 @@ const validateProductUpdate = [
 
 // Update product route
 app.put('/api/product/:id',
-    upload.single('image'),
-    validateProductUpdate,
+    handleUpload,
+    validateProduct,
     async (req, res) => {
         try {
             const errors = validationResult(req);
