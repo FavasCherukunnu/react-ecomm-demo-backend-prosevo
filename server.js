@@ -10,7 +10,7 @@ const { storage } = require('./storage/storage');
 const multer = require('multer');
 const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 30 * 1024 * 1024 }, // 2MB limit
+    limits: { fileSize: 2 * 1024 * 1024 }, // 2MB limit
     fileFilter: (req, file, cb) => {
         // You can add file type checking here if needed
         cb(null, true);
